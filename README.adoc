@@ -1,0 +1,29 @@
+# Car Claim Demo
+
+== Introduction
+
+This project demonstrates the application of MongoDB’s vector search and advanced text search features to streamline 
+and automate the process of declaring a car accident claim. 
+It addresses the functional need for insurers and customers to submit and process accident declarations efficiently, 
+leveraging semantic search to understand and classify user-submitted descriptions, photos, or documents. 
+
+Using AI-powered vector search, the system automatically associates relevant case data, pre-fills claim forms, 
+and retrieves similar past incidents for rapid validation. This approach reduces manual workload, accelerates claims management, 
+and enhances the customer experience in vehicle accident reporting.
+
+== Pre-requisites
+
+. A https://account.mongodb.com/account/register[MongoDB Atlas free] account.
+. A modern browser.
+. Wifi Internet connection.
+. Git installed.
+. Docker Desktop installed
+
+== Step 1: Intall the local application
+
+Follow this steps:
+
+[,console]
+----
+git clone https://github.com/bguedes/CarClaimAtlasDemo.git
+----
