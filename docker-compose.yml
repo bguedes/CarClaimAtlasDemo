@@ -1,0 +1,21 @@
+services:
+  car-claim-client:
+    build:
+      context: ./client
+      no_cache: true
+      dockerfile: Dockerfile
+    image: car-claim-client:latest
+    ports:
+      - "8080:8080"
+    restart: always
+    container_name: car-claim-client
+  car-claim-server:
+    build:
+      context: ./server
+      no_cache: true
+      dockerfile: Dockerfile
+    image: car-claim-server:latest
+    ports:
+      - "9090:9090"
+    restart: always
+    container_name: car-claim-server
