@@ -38,7 +38,7 @@ async function processAllImages() {
         
         // 4. Générer l'embedding
         const embeddingResponse = await getEmbedding(imageData.description);
-        imageData.embedding = embeddingResponse.data[0].embedding;
+        imageData.embedding = embeddingResponse.embeddings[0];
         
         // 5. Préparer le document final
         imageData.image_path = imagePath;
@@ -50,6 +50,7 @@ async function processAllImages() {
         console.log(`✅ Completed processing: ${imagePath}`);
         console.log(`   - Title: ${imageData.title}`);
         console.log(`   - Severity: ${imageData.severity}`);
+        console.log(`   - Description: ${imageData.description}`);
         console.log(`   - Cost: $${imageData.cost_estimate}`);
         
       } else {

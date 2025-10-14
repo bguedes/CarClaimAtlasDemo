@@ -14,7 +14,7 @@ router.route('/createClaim').post(createClaim);
 router.route('/similarClaims').post(getSimilarClaims);
 router.route('/findClaim').post(findClaim);
 router.route('/submitClaim').post(submitClaim);
-router.route('/getUnhandledClaims').get(getUnhandledClaims);
+router.route('/unhandledClaims').get(getUnhandledClaims);
 router.route('/updateClaim').put(updateClaim);
 
 export default router;

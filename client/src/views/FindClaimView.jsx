@@ -27,7 +27,7 @@ const FindClaimView = () => {
     const requestBody = { searchTerm };
 
     try {
-      const response = await fetch(`http://localhost:9090/api/findClaim`, {
+      const response = await fetch(`${config.API_BASE_URL}/findClaim`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -40,7 +40,8 @@ const FindClaimView = () => {
       }
 
       const fetchedClaims = await response.json();
-      setClaims(fetchedClaims);
+      //console.log(`findClaimView - fetchedClaims : ${fetchedClaims.result} similar claims`);
+      setClaims(fetchedClaims.result);
     } catch (error) {
       console.error("Failed to fetch claims:", error);
       // Optionally, update UI to reflect that the search failed
@@ -53,7 +54,7 @@ const FindClaimView = () => {
 
     try {
       //const response = await fetch(`${config.API_BASE_URL}/similarClaims`, {
-      const response = await fetch(`http://localhost:9090/api/similarClaims`, {
+      const response = await fetch(`${config.API_BASE_URL}/similarClaims`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -65,8 +66,11 @@ const FindClaimView = () => {
         throw new Error(`Error: ${response.statusText}`);
       }
 
+      console.log(`findClaimView - handleOpen : ${response} similar claims`);
+
       const similarClaimsData = await response.json();
       console.log(similarClaimsData.result);
+      console.log(`findClaimView - handleOpen : ${similarClaimsData.result} similar claims`);
       setSimilarClaims(similarClaimsData.result);
       // After successfully fetching similar claims, open the modal with the selected claim
       setSelectedClaim(claim);
@@ -114,7 +118,7 @@ const FindClaimView = () => {
           Claims
         </Typography>
 
-        {claims.map((claim) => (
+        {Array.isArray(claims) && claims.map((claim) => (
           <Card
             key={claim._id.$oid}
             sx={{

@@ -54,26 +54,25 @@ const ManageClaimView = () => {
   };
 
   const handleOpen = async (claim) => {
-    const requestBody = { embedding: claim.embedding, skip: 0, limit: 3 };
+
+    console.error("ManageClaim - handleOpen - claim :", claim);
+    const requestBody = { embedding: claim.embedding[0], skip: 0, limit: 3 };
+
+    console.error("ManageClaim - handleOpen - embedding :", requestBody);
 
     try {
-      const response = await fetch(`${config.API_BASE_URL}/similarClaims`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
+      const response = await fetch(`${config.API_BASE_URL}/unhandledClaims`);
 
       if (!response.ok) {
         throw new Error(`Error: ${response.statusText}`);
       }
 
-      const similarClaimsData = await response.json();
-      console.log(similarClaimsData.result);
-      setSimilarClaims(similarClaimsData.result);
+      const unhandledClaimsData = await response.json();
+      const unhandledClaim = unhandledClaimsData.result;
+      console.log(unhandledClaim);
+      setSimilarClaims(unhandledClaim);
       // After successfully fetching similar claims, open the modal with the selected claim
-      setSelectedClaim(claim);
+      setSelectedClaim(unhandledClaim);
       setOpen(true);
     } catch (error) {
       console.error("Failed to fetch similar claims:", error);
@@ -90,8 +89,10 @@ const ManageClaimView = () => {
       const response = await fetch(`${config.API_BASE_URL}/unhandledClaims`);
       const data = await response.json();
 
+      const claim = data.result;
       // Filter to only include claims where handled === false
-      const unhandledClaims = data.filter((claim) => claim.handled === false);
+      console.log("API Response claim :", claim); // Diagnostic
+      const unhandledClaims = claim.filter((claim) => claim.handled === false);
 
       // Update state with the filtered list of unhandled claims
       setClaims(unhandledClaims);

@@ -32,7 +32,14 @@ const MyClaimsView = () => {
       const response = await fetch(`${config.API_BASE_URL}/unhandledClaims`);
       const data = await response.json();
 
-      setClaims(data);
+      console.log("API Response:", data); // Diagnostic
+
+      if (data.success && Array.isArray(data.result)) {
+        setClaims(data.result);
+      } else {
+        console.error("Unexpected API response format:", data);
+        setClaims([]);
+      }
     };
 
     fetchClaims().catch(console.error); // Log errors to console

@@ -2,20 +2,30 @@ require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const OpenAI = require('openai'); // ✅ Import OpenAI standard
 const { dbConnectionString } = require('./db_config');
+const axios = require('axios');
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // ✅ Utilise OPENAI_API_KEY
-});
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL 
+
+//const client = new OpenAI({
+//  apiKey: process.env.OPENAI_API_KEY, // ✅ Utilise OPENAI_API_KEY
+//});
 
 async function getEmbedding(damageDescription) {
   /**
    * Get the vector embedding for the damage description.
    */
-  const response = await client.embeddings.create({
-    input: [damageDescription], 
-    model: "text-embedding-ada-002" // ✅ Modèle OpenAI standard
+  //const response = await client.embeddings.create({
+  //  input: [damageDescription], 
+  //  model: process.env.EMBEDDING_MODEL // ✅ Modèle OpenAI standard
+  //});
+
+  const response = await axios.post(`${OLLAMA_BASE_URL}/api/embed`, {
+    model: EMBEDDING_MODEL,
+    input: damageDescription
   });
-  return response;
+
+  return response.data;
 }
 
 async function main() {
@@ -37,7 +47,8 @@ async function main() {
       if (!embedding) {
         const damageDescription = document.description;
         const embeddingResponse = await getEmbedding(damageDescription);
-        const embeddingVector = embeddingResponse.data[0].embedding;
+        const embeddingVector = embeddingResponse.embeddings[0];
+        //const embeddingVector = embeddingResponse.data[0].embedding;
         
         await collection.updateOne(
           { "_id": document._id }, 

@@ -27,3 +27,39 @@ Follow this steps:
 ----
 git clone https://github.com/bguedes/CarClaimAtlasDemo.git
 ----
+
+
+[,console]
+----
+use('CarClaims');
+
+// Create index for full-text search
+db.vehicle_damage.createSearchIndex(
+  "description_index",
+  {
+    "mappings": {
+        fields: {
+            description: {
+                type: "string"
+            }
+        }
+    }
+  }
+);
+
+// Create index for semantic search
+db.vehicle_damage.createSearchIndex(
+  "semantic_search_description",
+  "vectorSearch",
+  {
+    "fields": [
+      {
+        "type": "vector",
+        "path": "embedding",
+        "numDimensions": 1024,
+        "similarity": "dotProduct"
+      }
+    ]
+  }
+);
+----

@@ -2,16 +2,22 @@ import dotenv from "dotenv";
 import asyncHandler from "../middleware/asyncHandler.js";
 import OpenAI from "openai";
 import { MongoClient, ObjectId } from "mongodb";
+import axios from "axios";
+//const axios = require("axios");
 
 dotenv.config();
+
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
+const LLM_MODEL = process.env.LLM_MODEL;
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;
 
 // Import de la configuration de la base de données
 let db, vehicleDamageCollection, unhandledClaimsCollection;
 
 // Configuration OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+//const openai = new OpenAI({
+//  apiKey: process.env.OPENAI_API_KEY,
+//});
 
 // Fonction d'initialisation des collections (appelée depuis db.js)
 export const initializeCollections = (
@@ -24,13 +30,41 @@ export const initializeCollections = (
   unhandledClaimsCollection = claimsCollection;
 };
 
-async function generateEmbedding(text) {
+async function generateEmbedding(damageDescription) {
   try {
-    const response = await openai.embeddings.create({
-      model: process.env.OPENAI_MODEL,
-      input: text,
+    //For OpenAI
+    //const response = await openai.embeddings.create({
+    //  model: process.env.OPENAI_MODEL,
+    //  input: damageDescription,
+    //});
+    
+    //return response.data[0].embedding;
+
+    //For Ollama
+    const response = await axios.post(`${OLLAMA_BASE_URL}/api/embed`, {
+      model: EMBEDDING_MODEL,
+      input: damageDescription
     });
-    return response.data[0].embedding;
+
+    // CORRECTION: Extraire le vecteur du bon endroit
+    console.log('Ollama embedding response:', response.data);
+    
+    // La réponse Ollama contient probablement une propriété 'embeddings'
+    if (response.data.embeddings && Array.isArray(response.data.embeddings)) {
+      return response.data.embeddings; // Premier embedding
+    }
+    
+    // Alternative si la structure est différente
+    if (response.data.embedding && Array.isArray(response.data.embedding)) {
+      return response.data.embedding;
+    }
+    
+    // Si c'est déjà un array direct (improbable)
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    throw new Error('Unexpected embedding format from Ollama');
   } catch (error) {
     console.error('Error generating embedding:', error);
     throw error;
@@ -40,27 +74,93 @@ async function generateEmbedding(text) {
 // Fonction pour analyser l'image avec OpenAI Vision standard
 async function analyzeImage(base64Image) {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Modèle Vision OpenAI standard
-      max_tokens: 300,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Can you describe the damage to the vehicle, including a title and the severity (categorized as low, medium or high)? Please return json instead of text. The json structure should use the headings 'title', 'description', and 'severity'.",
-            },
-            {
-              type: "image_url",
-              image_url: { url: `data:image/jpeg;base64,${base64Image}` },
-            },
-          ],
-        },
-      ],
+    //const response = await openai.chat.completions.create({
+    //  model: "gpt-4o", // Modèle Vision OpenAI standard
+    //  max_tokens: 300,
+    //  messages: [
+    //    {
+    //      role: "user",
+    //      content: [
+    //        {
+    //          type: "text",
+    //          text: "Can you describe the damage to the vehicle, including a title and the severity (categorized as low, medium or high)? Please return json instead of text. The json structure should use the headings 'title', 'description', and 'severity'.",
+    //        },
+    //        {
+    //          type: "image_url",
+    //          image_url: { url: `data:image/jpeg;base64,${base64Image}` },
+    //        },
+    //      ],
+    //    },
+    //  ],
+    //});
+
+    const response = await axios.post(`${OLLAMA_BASE_URL}/api/generate`, {
+        model: LLM_MODEL,
+        //prompt: "Can you describe the damage to the vehicle, including a title and the severity " +
+        //        "(categorized as low, medium or high)? Please return json instead of text. The " +
+        //        "json structure should use the headings 'title', 'description', and 'severity'.",
+        //images: [base64Image],
+          //format: "json",
+        //stream: false
+      //});
+
+      prompt: `You are an automotive damage assessment expert. Analyze this vehicle accident image and respond ONLY with valid JSON in this exact format:
+
+{
+  "title": "Concise damage title",
+  "description": "Detailed technical description",
+  "severity": "low",
+  "damage_location": "Affected area(s)",
+  "estimated_parts": ["List of potentially damaged parts"]
+}
+
+For the description, mandatory include:
+- Precise damage location (front/rear/left side/right side, upper/lower area)
+- Type of damage (deformation, scratches, cracks, breakage, detachment)
+- Extent of damage (approximate dimensions if visible)
+- Affected parts (body panels, lights, bumpers, glass, etc.)
+- Signs of structural vs. cosmetic damage only
+- Potential impact on safety or functionality
+
+Severity must be exactly: "low", "medium", or "high" based on these criteria:
+- low: superficial cosmetic damage, vehicle drivable
+- medium: moderate damage affecting aesthetics or minor functionalities
+- high: structural damage, safety concerns, vehicle potentially immobilized
+
+Do not include any text outside the JSON object.`,
+    
+//      prompt: `Analyze this vehicle damage image and respond ONLY with valid JSON in this exact format:
+//      {
+//        "title": "Brief damage title",
+//        "description": "Detailed damage description", 
+//        "severity": "low"
+//     }
+//    
+//      The severity must be exactly one of: "low", "medium", or "high".
+//      Do not include any text outside the JSON object.`,
+      images: [base64Image],
+      // ✅ Options d'optimisation M1
+      options: {
+        gpu: true,
+        num_thread: 8,           // Utiliser tous les cœurs
+        //num_ctx: 1024,          // Contexte suffisant mais pas excessif
+        //repeat_penalty: 1.1,     // Éviter répétitions
+        temperature: 0.7,        // Plus déterministe = plus rapide
+        top_k: 20,              // Limiter choix = plus rapide
+        top_p: 0.8,
+        MinP: 0,
+        //num_predict: 100,    // Limiter la réponse
+        //repeat_penalty: 1.1
+      },
+      format: "json",
+      stream: false,
+      //timeout: 60000  // 60 secondes
     });
 
-    let content = response.choices[0].message.content;
+    //Pour OpenAI
+    //let content = response.choices[0].message.content;
+    console.log('response.data.response : ', response.data.response);
+    let content = response.data.response; 
     
     content = content
       .replace(/```json\s*/gi, "")
@@ -69,18 +169,34 @@ async function analyzeImage(base64Image) {
       .replace(/`+\s*$/gm, "")
       .replace(/^\s*[\r\n]+/gm, "")
       .trim();
+
+    console.log("Contenu nettoyé:", content); 
+
+    // Vérification avant parsing
+    if (!content.startsWith("{") || !content.endsWith("}")) {
+      throw new Error(
+        `Le contenu ne semble pas être un JSON valide: ${content.substring(
+          0,
+          100
+        )}...`
+      );
+    }
     
     const parsedResponse = JSON.parse(content);
+
+    console.log('parsedResponse : ', parsedResponse);
+    console.log('description:', parsedResponse.description);
     
-    return {
-      description: parsedResponse.description,
-      severity: parsedResponse.severity.toLowerCase(),
-      title: parsedResponse.title
-    };
-    
+    //return {
+    //  description: parsedResponse.description,
+    //severity: parsedResponse.severity.toLowerCase(),
+    parsedResponse.severity = parsedResponse.severity.toLowerCase();
+    //  title: parsedResponse.title
+    //};
+    return parsedResponse;
   } catch (error) {
     console.error('Error analyzing image:', error);
-    throw new Error(`Failed to get description from OpenAI: ${error.message}`);
+    throw new Error(`Failed to get description from LLM: ${error.message}`);
   }
 }
 
@@ -127,7 +243,7 @@ const createClaim = asyncHandler(async (req, res) => {
     const imageAnalysis = await analyzeImage(base64Image);
     const { description, severity, title } = imageAnalysis;
 
-    console.log('Image analysis completed:', { title, severity });
+    console.log('Image analysis completed:', { description, severity, title });
 
     // 2. Générer l'embedding pour la description
     const embedding = await generateEmbedding(description);
@@ -207,12 +323,14 @@ const createClaim = asyncHandler(async (req, res) => {
 
     // 6. Réponse de succès (format compatible avec votre frontend)
     res.status(200).json({
-      message: "Image processed and description generated successfully",
-      description,
+      //message: "Image processed and description generated successfully",
       title,
+      description,
       severity,
-      embedding,
+      //damage_location,
+      //estimated_parts,
       cost_estimate: Math.round(avgCostEstimate),
+      embedding,
       //claimId: insertResult.insertedId,
       similar_claims: searchResult
     });
@@ -254,10 +372,12 @@ const getSimilarClaims = asyncHandler(async (req, res) => {
 
     const { embedding, skip = 0, limit = 3 } = req.body;
 
+    console.log(`getSimilarClaims - embedding : ${embedding} used for the vector search`);
+
     const pipeline = [
       {
         $vectorSearch: {
-          index: "default",
+          index: "semantic_search_description",
           path: "embedding",
           queryVector: embedding,
           numCandidates: 200,
@@ -282,6 +402,8 @@ const getSimilarClaims = asyncHandler(async (req, res) => {
       .aggregate(pipeline)
       .toArray();
 
+    console.log(`getSimilarClaims - searchResult : ${searchResult} similar claims`);
+
     res.status(200).json({
       success: true,
       result: searchResult,
@@ -305,25 +427,72 @@ const findClaim = asyncHandler(async (req, res) => {
 
     const searchTerm = req.body.searchTerm || req.body;
 
+    const embedding = await generateEmbedding(searchTerm);
+    //console.log('Generated embedding for searchTerm : ', embedding[0]);
+
+    //const pipeline = [
+    //  {
+    //    $search: {
+    //      index: "findClaim",
+    //      text: {
+    //        query: searchTerm,
+    //        path: "description",
+    //      },
+    //    },
+    //  },
+    //  {
+    //    $match: {
+    //      embedding: { $exists: true },
+    //    },
+    //  },
+    //  { $limit: 5 },
+    //];
+
+
     const pipeline = [
       {
-        $search: {
-          index: "findClaim",
-          text: {
-            query: searchTerm,
-            path: "description",
-          },
-        },
+        $rankFusion: {
+            input: {
+              pipelines: {
+                  searchOne: [
+                      {
+                        $vectorSearch: {
+                          index: "semantic_search_description",
+                          path: "embedding",
+                          queryVector: embedding[0],
+                          numCandidates: 200,
+                          limit: 5,
+                        }
+                      }
+                  ],
+                  searchTwo: [
+                      {
+                        $search: {
+                          index: "description_index",
+                          text: {
+                            query: searchTerm,
+                            path: "description",
+                          },
+                        },
+                      },
+                      {
+                        $match: {
+                          embedding: { $exists: true },
+                        },
+                      }
+                  ],
+              }
+            }
+        }
       },
-      {
-        $match: {
-          embedding: { $exists: true },
-        },
-      },
-      { $limit: 5 },
+      { $limit: 7 }
     ];
 
+
     const result = await vehicleDamageCollection.aggregate(pipeline).toArray();
+
+    //console.log(`findClaim - searchResult : ${result} similar claims`);
+    //console.log(`First findClaim - searchResult : ${result[0]} similar claims`);
 
     res.status(200).json({
       success: true,
@@ -371,7 +540,7 @@ const submitClaim = asyncHandler(async (req, res) => {
 
 
 // @desc Get all unhandled claims
-// @route GET /api/getUnhandledClaims
+// @route GET /api/unhandledClaims
 // @access Public
 const getUnhandledClaims = asyncHandler(async (req, res) => {
   try {
@@ -380,6 +549,8 @@ const getUnhandledClaims = asyncHandler(async (req, res) => {
     }
 
     const result = await unhandledClaimsCollection.find({}).toArray();
+
+    console.error("getUnhandledClaims - result : ", result);
 
     res.status(200).json({
       success: true,
