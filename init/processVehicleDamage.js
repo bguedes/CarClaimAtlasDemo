@@ -6,10 +6,12 @@ const { dbConnectionString } = require('./db_config');
 const fs = require('fs');
 const path = require('path');
 
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function processAllImages() {
-  /**
-   * Script principal qui traite toutes les images, génère descriptions, coûts et embeddings
-   */
+
   const mongoClient = new MongoClient(dbConnectionString);
   
   try {
@@ -67,6 +69,103 @@ async function processAllImages() {
   }
 }
 
+async function createVectorIndex() {
+
+  const mongoClient = new MongoClient(dbConnectionString);
+
+  try {
+    await mongoClient.connect();
+    const collection = mongoClient.db(process.env.DB_NAME).collection(process.env.COLLECTION_NAME);
+
+    await collection.createSearchIndex({
+      name: "semantic_search_description",
+      type: "vectorSearch",
+      definition: {
+        fields: [
+          {
+            type: "vector",
+            path: "embedding",
+            numDimensions: 1024,
+            similarity: "dotProduct"
+          }
+        ]
+      }
+    });
+    console.log("Index vector Search créé !");
+  } finally {
+    await mongoClient.close();
+  }
+}
+
+async function createFullTextIndex() {
+
+  const mongoClient = new MongoClient(dbConnectionString);
+
+  try {
+    await mongoClient.connect();
+    const collection = mongoClient.db(process.env.DB_NAME).collection(process.env.COLLECTION_NAME);
+
+    await collection.createSearchIndex({
+      name: "description_index",
+      definition: {
+        mappings: {
+          fields: {
+            description: {
+              type: "string"
+            }
+          }
+        }
+      }
+    });
+    console.log("Index full text créé !");
+  } finally {
+    await mongoClient.close();
+  }
+}
+
+async function ensureDatabaseAndCollection() {
+
+  console.log("Creating database and collection.");
+
+  const mongoClient = new MongoClient(dbConnectionString);
+
+  await mongoClient.connect();
+
+  // Vérifier si la base existe
+  const adminDb = mongoClient.db().admin();
+  const dbs = await adminDb.listDatabases();
+  const dbExists = dbs.databases.some(db => db.name === process.env.DB_NAME);
+
+  const db = mongoClient.db(process.env.DB_NAME);
+  let collectionExists = false;
+
+  if (dbExists) {
+    // Vérifier si la collection existe
+    const collections = await db.listCollections({ name: process.env.COLLECTION_NAME }).toArray();
+    collectionExists = collections.length > 0;
+    if (!collectionExists) {
+      await db.createCollection(process.env.COLLECTION_NAME);
+      console.log(`Collection '${process.env.COLLECTION_NAME}' created in database '${process.env.DB_NAME}'.`);
+    } else {
+      console.log(`Database '${process.env.DB_NAME}' and collection '${process.env.COLLECTION_NAME}' already exists.`);
+    }
+  } else {
+    // La base n’existe pas. Créer la collection va créer la base.
+    await db.createCollection(process.env.COLLECTION_NAME);
+    console.log(`Database '${process.env.DB_NAME}' and collection '${process.env.COLLECTION_NAME}' created.`);   
+  }
+
+  await delay(1000);
+
+  createVectorIndex();
+  createFullTextIndex();
+
+  await mongoClient.close();
+}
+
+
+
 if (require.main === module) {
+  ensureDatabaseAndCollection();
   processAllImages();
 }

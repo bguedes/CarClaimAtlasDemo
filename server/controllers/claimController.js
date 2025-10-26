@@ -1,9 +1,7 @@
 import dotenv from "dotenv";
 import asyncHandler from "../middleware/asyncHandler.js";
-import OpenAI from "openai";
 import { MongoClient, ObjectId } from "mongodb";
 import axios from "axios";
-//const axios = require("axios");
 
 dotenv.config();
 
@@ -13,11 +11,6 @@ const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL;
 
 // Import de la configuration de la base de données
 let db, vehicleDamageCollection, unhandledClaimsCollection;
-
-// Configuration OpenAI
-//const openai = new OpenAI({
-//  apiKey: process.env.OPENAI_API_KEY,
-//});
 
 // Fonction d'initialisation des collections (appelée depuis db.js)
 export const initializeCollections = (
@@ -32,13 +25,6 @@ export const initializeCollections = (
 
 async function generateEmbedding(damageDescription) {
   try {
-    //For OpenAI
-    //const response = await openai.embeddings.create({
-    //  model: process.env.OPENAI_MODEL,
-    //  input: damageDescription,
-    //});
-    
-    //return response.data[0].embedding;
 
     //For Ollama
     const response = await axios.post(`${OLLAMA_BASE_URL}/api/embed`, {
@@ -74,37 +60,10 @@ async function generateEmbedding(damageDescription) {
 // Fonction pour analyser l'image avec OpenAI Vision standard
 async function analyzeImage(base64Image) {
   try {
-    //const response = await openai.chat.completions.create({
-    //  model: "gpt-4o", // Modèle Vision OpenAI standard
-    //  max_tokens: 300,
-    //  messages: [
-    //    {
-    //      role: "user",
-    //      content: [
-    //        {
-    //          type: "text",
-    //          text: "Can you describe the damage to the vehicle, including a title and the severity (categorized as low, medium or high)? Please return json instead of text. The json structure should use the headings 'title', 'description', and 'severity'.",
-    //        },
-    //        {
-    //          type: "image_url",
-    //          image_url: { url: `data:image/jpeg;base64,${base64Image}` },
-    //        },
-    //      ],
-    //    },
-    //  ],
-    //});
 
     const response = await axios.post(`${OLLAMA_BASE_URL}/api/generate`, {
         model: LLM_MODEL,
-        //prompt: "Can you describe the damage to the vehicle, including a title and the severity " +
-        //        "(categorized as low, medium or high)? Please return json instead of text. The " +
-        //        "json structure should use the headings 'title', 'description', and 'severity'.",
-        //images: [base64Image],
-          //format: "json",
-        //stream: false
-      //});
-
-      prompt: `You are an automotive damage assessment expert. Analyze this vehicle accident image and respond ONLY with valid JSON in this exact format:
+        prompt: `You are an automotive damage assessment expert. Analyze this vehicle accident image and respond ONLY with valid JSON in this exact format:
 
 {
   "title": "Concise damage title",
@@ -128,23 +87,11 @@ Severity must be exactly: "low", "medium", or "high" based on these criteria:
 - high: structural damage, safety concerns, vehicle potentially immobilized
 
 Do not include any text outside the JSON object.`,
-    
-//      prompt: `Analyze this vehicle damage image and respond ONLY with valid JSON in this exact format:
-//      {
-//        "title": "Brief damage title",
-//        "description": "Detailed damage description", 
-//        "severity": "low"
-//     }
-//    
-//      The severity must be exactly one of: "low", "medium", or "high".
-//      Do not include any text outside the JSON object.`,
       images: [base64Image],
       // ✅ Options d'optimisation M1
       options: {
         gpu: true,
-        num_thread: 8,           // Utiliser tous les cœurs
-        //num_ctx: 1024,          // Contexte suffisant mais pas excessif
-        //repeat_penalty: 1.1,     // Éviter répétitions
+        num_thread: 8,           
         temperature: 0.7,        // Plus déterministe = plus rapide
         top_k: 20,              // Limiter choix = plus rapide
         top_p: 0.8,
@@ -157,8 +104,6 @@ Do not include any text outside the JSON object.`,
       //timeout: 60000  // 60 secondes
     });
 
-    //Pour OpenAI
-    //let content = response.choices[0].message.content;
     console.log('response.data.response : ', response.data.response);
     let content = response.data.response; 
     
@@ -187,12 +132,7 @@ Do not include any text outside the JSON object.`,
     console.log('parsedResponse : ', parsedResponse);
     console.log('description:', parsedResponse.description);
     
-    //return {
-    //  description: parsedResponse.description,
-    //severity: parsedResponse.severity.toLowerCase(),
     parsedResponse.severity = parsedResponse.severity.toLowerCase();
-    //  title: parsedResponse.title
-    //};
     return parsedResponse;
   } catch (error) {
     console.error('Error analyzing image:', error);
@@ -253,7 +193,7 @@ const createClaim = asyncHandler(async (req, res) => {
     const pipeline = [
       {
         $vectorSearch: {
-          index: "vector_claim",
+          index: "semantic_search_description",
           path: "embedding",
           queryVector: embedding,
           numCandidates: 200,
@@ -318,20 +258,14 @@ const createClaim = asyncHandler(async (req, res) => {
       analysis_source: "openai_standard" // Marqueur pour différencier
     };
 
-    //const insertResult = await vehicleDamageCollection.insertOne(claimDocument);
-    //console.log('Claim saved with ID:', insertResult.insertedId);
-
     // 6. Réponse de succès (format compatible avec votre frontend)
     res.status(200).json({
-      //message: "Image processed and description generated successfully",
       title,
       description,
       severity,
-      //damage_location,
-      //estimated_parts,
       cost_estimate: Math.round(avgCostEstimate),
       embedding,
-      //claimId: insertResult.insertedId,
+
       similar_claims: searchResult
     });
 
@@ -428,26 +362,6 @@ const findClaim = asyncHandler(async (req, res) => {
     const searchTerm = req.body.searchTerm || req.body;
 
     const embedding = await generateEmbedding(searchTerm);
-    //console.log('Generated embedding for searchTerm : ', embedding[0]);
-
-    //const pipeline = [
-    //  {
-    //    $search: {
-    //      index: "findClaim",
-    //      text: {
-    //        query: searchTerm,
-    //        path: "description",
-    //      },
-    //    },
-    //  },
-    //  {
-    //    $match: {
-    //      embedding: { $exists: true },
-    //    },
-    //  },
-    //  { $limit: 5 },
-    //];
-
 
     const pipeline = [
       {
@@ -491,9 +405,6 @@ const findClaim = asyncHandler(async (req, res) => {
 
     const result = await vehicleDamageCollection.aggregate(pipeline).toArray();
 
-    //console.log(`findClaim - searchResult : ${result} similar claims`);
-    //console.log(`First findClaim - searchResult : ${result[0]} similar claims`);
-
     res.status(200).json({
       success: true,
       result,
@@ -520,9 +431,6 @@ const submitClaim = asyncHandler(async (req, res) => {
     claimData.createdAt = new Date();
     claimData.status = "pending";
 
-    //const result = await unhandledClaimsCollection.insertOne(claimData);
-
-    //const insertResult = await vehicleDamageCollection.insertOne(claimDocument);
     const result = await unhandledClaimsCollection.insertOne(claimData);
     console.log('Claim saved with ID:', result.insertedId);
 
