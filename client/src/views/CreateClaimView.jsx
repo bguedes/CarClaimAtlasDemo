@@ -104,7 +104,7 @@ const CreateClaimView = () => {
         }),
       });
 
-      console.log("base64Image : ", base64Image);
+      //console.log("base64Image : ", base64Image);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

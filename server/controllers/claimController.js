@@ -195,7 +195,7 @@ const createClaim = asyncHandler(async (req, res) => {
         $vectorSearch: {
           index: "semantic_search_description",
           path: "embedding",
-          queryVector: embedding,
+          queryVector: embedding[0],
           numCandidates: 200,
           limit: 3,
         },
@@ -483,6 +483,7 @@ const updateClaim = asyncHandler(async (req, res) => {
     const { id } = req.body;
 
     const filter = { _id: new ObjectId(id) };
+    console.error("updateClaim - filter : ", filter);
     const update = {
       $set: {
         handled: true,
