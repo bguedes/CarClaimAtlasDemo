@@ -26,7 +26,7 @@ const CreateClaimView = () => {
       console.log("Claim submission initiated.");
       console.log("suggestedClaim : ", suggestedClaim);
       try {
-        //const response = await fetch(`${config.API_BASE_URL}/createClaim`, {
+        //const response = await fetch(`${config.API_BASE_URL}/api/createClaim`, {
         const response = await fetch(`http://localhost:9090/api/submitClaim`, {
           method: "POST",
           headers: {

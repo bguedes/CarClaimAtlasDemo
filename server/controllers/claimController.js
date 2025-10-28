@@ -304,6 +304,8 @@ const getSimilarClaims = asyncHandler(async (req, res) => {
       return res.status(503).json({ error: "Database not connected" });
     }
 
+    console.log(`getSimilarClaims - req.body : ${req.body} `);
+
     const { embedding, skip = 0, limit = 3 } = req.body;
 
     console.log(`getSimilarClaims - embedding : ${embedding} used for the vector search`);
@@ -472,7 +474,7 @@ const getUnhandledClaims = asyncHandler(async (req, res) => {
 
 
 // @desc Update claim status to handled
-// @route PUT /api/updateClaim
+// @route PUT /api/ 
 // @access Public
 const updateClaim = asyncHandler(async (req, res) => {
   try {
@@ -480,8 +482,15 @@ const updateClaim = asyncHandler(async (req, res) => {
       return res.status(503).json({ error: "Database not connected" });
     }
 
+    console.error("updateClaim - req.body : ", req.body);
+
     const { id } = req.body;
 
+    console.error("updateClaim - id : ", id);
+
+    if(!id || !ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: "Invalid or missing 'id'." });
+    }
     const filter = { _id: new ObjectId(id) };
     console.error("updateClaim - filter : ", filter);
     const update = {
@@ -493,6 +502,10 @@ const updateClaim = asyncHandler(async (req, res) => {
     };
 
     const result = await unhandledClaimsCollection.updateOne(filter, update);
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Claim not found" });
+    }
 
     res.status(200).json({
       success: true,

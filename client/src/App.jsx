@@ -15,7 +15,6 @@ import ViewWrapper from "./views/ViewWrapper"; // Import the ViewWrapper
 import HomeIcon from "@mui/icons-material/Home"; // Import the Home icon for the button
 import ManageClaimView from "./views/ManageClaimView";
 import FindClaimView from "./views/FindClaimView";
-import ClaimOverviewView from "./views/ClaimOverviewView";
 import MyClaimsView from "./views/MyClaimsView";
 
 // Custom theme for overall app styling
@@ -101,9 +100,6 @@ function App() {
       </ViewWrapper>
       <ViewWrapper in={view === "findClaim"}>
         <FindClaimView />
-      </ViewWrapper>
-      <ViewWrapper in={view === "claimOverview"}>
-        <ClaimOverviewView />
       </ViewWrapper>
     </ThemeProvider>
   );

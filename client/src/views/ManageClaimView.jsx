@@ -24,7 +24,8 @@ const ManageClaimView = () => {
     handleClose();
 
     try {
-      const response = await fetch(`${config.API_BASE_URL}/updateClaim`, {
+      //const response = await fetch(`${config.API_BASE_URL}/updateClaim`, {
+      const response = await fetch(`http://localhost:9090/api/updateClaim`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -61,7 +62,14 @@ const ManageClaimView = () => {
     console.error("ManageClaim - handleOpen - embedding :", requestBody);
 
     try {
-      const response = await fetch(`${config.API_BASE_URL}/unhandledClaims`);
+      //const response = await fetch(`${config.API_BASE_URL}/similarClaims`);
+      const response = await fetch(`http://localhost:9090/api/similarClaims`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ embedding: requestBody.embedding, skip: requestBody.skip, limit: requestBody.limit }),
+      });
 
       if (!response.ok) {
         throw new Error(`Error: ${response.statusText}`);
@@ -72,7 +80,7 @@ const ManageClaimView = () => {
       console.log(unhandledClaim);
       setSimilarClaims(unhandledClaim);
       // After successfully fetching similar claims, open the modal with the selected claim
-      setSelectedClaim(unhandledClaim);
+      setSelectedClaim(claim);
       setOpen(true);
     } catch (error) {
       console.error("Failed to fetch similar claims:", error);
@@ -86,7 +94,8 @@ const ManageClaimView = () => {
   useEffect(() => {
     // Fetch unhandled claims from the endpoint
     const fetchClaims = async () => {
-      const response = await fetch(`${config.API_BASE_URL}/unhandledClaims`);
+      //const response = await fetch(`${config.API_BASE_URL}/api/unhandledClaims`);
+      const response = await fetch(`http://localhost:9090/api/unhandledClaims`);
       const data = await response.json();
 
       const claim = data.result;
