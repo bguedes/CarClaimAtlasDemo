@@ -79,7 +79,7 @@ function App() {
             component="div"
             sx={{ flexGrow: 1, textAlign: "center", color: "black" }}
           >
-            ClaimVista
+            MongoDB Claim
           </Typography>
         </Toolbar>
       </AppBar>
