@@ -11,55 +11,111 @@ Using AI-powered vector search, the system automatically associates relevant cas
 and retrieves similar past incidents for rapid validation. This approach reduces manual workload, accelerates claims management, 
 and enhances the customer experience in vehicle accident reporting.
 
-== Pre-requisites
+The stack runs entirely on your laptop with Docker:
 
-. A https://account.mongodb.com/account/register[MongoDB Atlas free] account.
-. A modern browser.
-. Wifi Internet connection.
-. Git installed.
-. Docker Desktop installed
+* React frontend (port `8080`)
+* Node.js API (port `9090`)
+* MongoDB Atlas Local (port `27017`)
+* Ollama on the host for the AI models (port `11434`)
 
-== Step 1: Intall the local application
+== What you need to install (once)
 
-Follow this steps:
+. **Docker Desktop** — https://www.docker.com/products/docker-desktop/[download]. Launch it and wait for the whale icon to be steady.
+. **Git** — https://git-scm.com/downloads[download].
+. **MongoDB Compass** — https://www.mongodb.com/try/download/compass[download]. Used to import the dataset and create the indexes.
+. **Ollama** — https://ollama.com/download[download]. Once installed, pull the two models the demo uses:
++
+[,console]
+----
+ollama pull qwen2.5vl:7b
+ollama pull mxbai-embed-large
+----
+
+== Run the demo (5 steps)
+
+=== 1. Clone the project
 
 [,console]
 ----
 git clone https://github.com/bguedes/CarClaimAtlasDemo.git
+cd CarClaimAtlasDemo
 ----
 
+=== 2. Start the containers
 
 [,console]
 ----
+docker compose up -d --build
+----
+
+This starts the frontend, the API and MongoDB. The first run downloads images and takes a few minutes.
+
+=== 3. Import the dataset with Compass
+
+Open *MongoDB Compass* and connect with this URI:
+
+[,console]
+----
+mongodb://user:pass@localhost:27017/?directConnection=true
+----
+
+Then:
+
+. Create the database **`CarClaims`** with a collection **`vehicle_damage`**.
+. Select the collection, click *Add Data → Import JSON file*, and pick:
++
+`init/dataset/CarClaims.vehicle_damage.json`
+
+That's it — no LLM needed to load the data.
+
+=== 4. Create the two Atlas Search indexes
+
+In Compass, click the **`>_MONGOSH`** button at the bottom and paste:
+
+[,javascript]
+----
 use('CarClaims');
 
-// Create index for full-text search
 db.vehicle_damage.createSearchIndex(
   "description_index",
-  {
-    "mappings": {
-        fields: {
-            description: {
-                type: "string"
-            }
-        }
-    }
-  }
+  { mappings: { fields: { description: { type: "string" } } } }
 );
 
-// Create index for semantic search
 db.vehicle_damage.createSearchIndex(
   "semantic_search_description",
   "vectorSearch",
-  {
-    "fields": [
-      {
-        "type": "vector",
-        "path": "embedding",
-        "numDimensions": 1024,
-        "similarity": "dotProduct"
-      }
-    ]
-  }
+  { fields: [{ type: "vector", path: "embedding", numDimensions: 1024, similarity: "dotProduct" }] }
 );
 ----
+
+Wait until both indexes show status `READY` (a minute or two).
+
+=== 5. Open the demo
+
+http://localhost:8080[http://localhost:8080]
+
+Done.
+
+== Useful commands
+
+[cols="2,3"]
+|===
+| Stop everything             | `docker compose down`
+| Restart                     | `docker compose up -d`
+| Full reset (deletes data)   | `docker compose down -v`
+| View backend logs           | `docker logs -f car-claim-server`
+|===
+
+== Alternative: generate the dataset yourself with the LLM
+
+If you prefer to let the local vision model describe each image and generate embeddings from scratch (instead of importing the pre-built JSON):
+
+[,console]
+----
+cd init
+cp .env.template .env      # on Windows: copy .env.template .env
+npm install
+node processVehicleDamage.js
+----
+
+This requires Node.js and takes much longer (Ollama must be running). The script also creates the two search indexes for you.
